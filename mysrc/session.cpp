@@ -132,10 +132,7 @@ void session::proc_data(std::shared_ptr<session> psession)
 		size_t empty_size = sizeof(m_read_data_buffer) - m_read_data_size;
 		if (empty_size != 0)
 		{
-			if (!m_close_socket)
-			{
-				m_socket.async_read_some(boost::asio::buffer(m_read_data_buffer + m_read_data_size, empty_size), std::bind(&session::on_read, this, std::move(psession), std::placeholders::_1, std::placeholders::_2));
-			}
+			m_socket.async_read_some(boost::asio::buffer(m_read_data_buffer + m_read_data_size, empty_size), std::bind(&session::on_read, this, std::move(psession), std::placeholders::_1, std::placeholders::_2));
 		}
 		else
 		{
