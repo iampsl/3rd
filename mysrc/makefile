@@ -46,7 +46,7 @@ $(TARGET_DIR)$(TARGET):$(OBJS) $(PROJECT_LIB)
 -include $(DEPS)
 %.d:
 	rm -f $@;\
-	$(CC) -MM $(SOURCE_DIR)$(notdir $(patsubst %.d,%.cpp,$@)) > $@.$$$$;\
+	$(CC) $(COMPLIE_FLAGS) $(HEAD_DIR) -M $(SOURCE_DIR)$(notdir $(patsubst %.d,%.cpp,$@)) > $@.$$$$;\
 	sed 's,[^:]*:,$@ $(patsubst %.d,%.o,$@):,g' < $@.$$$$ >$@;\
 	rm -f $@.$$$$
 %.o:
