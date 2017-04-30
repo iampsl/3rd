@@ -1,3 +1,5 @@
 mysrc/server/server.sdf
 mysrc/server/.vs/server/v14/.suo
-mysrc/server/build/
+mysrc/server/build/windows/x64/
+mysrc/server/build/windows/.vs/
+mysrc/server/build/windows/server.sdf
