@@ -19,23 +19,23 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\log_manager.cpp" />
+    <ClCompile Include="..\..\src\MyLog.cpp" />
     <ClCompile Include="..\..\src\main.cpp" />
     <ClCompile Include="..\..\src\MyIoService.cpp" />
     <ClCompile Include="..\..\src\MyMemoryPool.cpp" />
     <ClCompile Include="..\..\src\MySocket.cpp" />
     <ClCompile Include="..\..\src\MyScopeExit.cpp" />
-    <ClCompile Include="..\..\src\workers.cpp" />
+    <ClCompile Include="..\..\src\MyWorkers.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\log_manager.h" />
+    <ClInclude Include="..\..\src\MyLog.h" />
     <ClInclude Include="..\..\src\MyIoService.h" />
     <ClInclude Include="..\..\src\MyMemoryPool.h" />
     <ClInclude Include="..\..\src\MyMessage.h" />
     <ClInclude Include="..\..\src\MySocket.h" />
     <ClInclude Include="..\..\src\MyException.h" />
     <ClInclude Include="..\..\src\MyScopeExit.h" />
-    <ClInclude Include="..\..\src\workers.h" />
+    <ClInclude Include="..\..\src\MyWorkers.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{5034C672-2660-4D7A-AEAC-DD254A34066D}</ProjectGuid>
@@ -148,6 +148,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -168,6 +169,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\3rd\boost_1_61_0\stage\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

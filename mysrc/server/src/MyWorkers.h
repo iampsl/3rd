@@ -1,5 +1,5 @@
-#ifndef PSL_WORKERS_H_
-#define PSL_WORKERS_H_
+#ifndef PSL_MY_WORKERS_H
+#define PSL_MY_WORKERS_H
 
 #include <deque>
 #include <memory>
@@ -8,19 +8,19 @@
 #include <vector>
 #include <mutex>
 
-class worker
+class MyWorker
 {
 public:
-	worker();
-	~worker();
+	MyWorker();
+	MyWorker & operator = (const MyWorker &) = delete;
+	MyWorker(const MyWorker &) = delete;
+	~MyWorker();
 	void start();
 	void push_back(std::function<void()> w);
 	void push_front(std::function<void()> w);
 	void stop();
 private:
 	void do_work();
-	worker & operator = (const worker & other) = delete;
-	worker(const worker & other) = delete;
 private:
 	std::deque<std::function<void()>> m_work[2];
 	size_t m_cur_worker_index;
@@ -30,22 +30,20 @@ private:
 	size_t m_cur_insert_index;
 };
 
-class workers
+class MyWorkers
 {
 public:
-	workers();
-	~workers();
+	MyWorkers();
+	MyWorkers & operator = (const MyWorkers &) = delete;
+	MyWorkers(const MyWorkers &) = delete;
+	~MyWorkers();
 	void start(unsigned int num);
 	void push_back(std::function<void()> w);
 	void push_front(std::function<void()> w);
 	void stop();
 private:
-	workers & operator = (const workers & other) = delete;
-	workers(const workers & other) = delete;
-private:
-	std::vector<std::shared_ptr<worker>> m_pworkers;
-	std::mutex m_mutex;
+	std::vector<std::shared_ptr<MyWorker>> m_vecWorkers;
 	size_t m_cur_index;
 };
 
-#endif // !PSL_WORKERS_H_
+#endif // !PSL_MY_WORKERS_H

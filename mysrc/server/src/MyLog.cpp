@@ -1,4 +1,4 @@
-#include "log_manager.h"
+#include "MyLog.h"
 #include <string.h>
 #include <string>
 #include <stdlib.h>
@@ -20,7 +20,7 @@ int get_mmddhhmmss(const time_t & t)
 }
 
 
-log_manager::log_manager()
+MyLog::MyLog()
 {
 	static_assert((sizeof(m_logs) / sizeof(m_logs[0])) != 0, "");
 	size_t nums = (sizeof(m_logs) / sizeof(m_logs[0]));
@@ -38,17 +38,17 @@ log_manager::log_manager()
 	}
 }
 
-log_manager::~log_manager()
+MyLog::~MyLog()
 {
 }
 
-log_manager & log_manager::get_instance()
+MyLog & MyLog::getInstance()
 {
-	static log_manager s_manager;
-	return s_manager;
+	static MyLog log;
+	return log;
 }
 
-void log_manager::set_log_info(int whichlog, const char * pfile_prefix, const char * pfile_suffix, const char * pfile_dir, size_t max_size)
+void MyLog::setLogInfo(int whichlog, const char * pfile_prefix, const char * pfile_suffix, const char * pfile_dir, size_t max_size)
 {
 	size_t nums = (sizeof(m_logs) / sizeof(m_logs[0]));
     assert(whichlog >= 0 && whichlog < nums);
@@ -80,7 +80,7 @@ void log_manager::set_log_info(int whichlog, const char * pfile_prefix, const ch
 	m_logs[whichlog].file_max_size = max_size;
 }
 
-void log_manager::start()
+void MyLog::start()
 {
 	size_t nums = (sizeof(m_logs) / sizeof(m_logs[0]));
 	for (size_t i = 0; i < nums; ++i)
@@ -89,10 +89,10 @@ void log_manager::start()
 		assert(m_logs[i].bstart == false);
 		m_logs[i].bstart = true;
 	}
-	m_pthread = std::make_shared<std::thread>(&log_manager::work_thread, this);
+	m_pthread = std::make_shared<std::thread>(&MyLog::work_thread, this);
 }
 
-void log_manager::output_message( int whichlog, const message_data & msg)
+void MyLog::outputMsg( int whichlog, const message_data & msg)
 {
 	size_t nums = (sizeof(m_logs) / sizeof(m_logs[0]));
     assert(whichlog >= 0 && whichlog < nums);
@@ -112,7 +112,7 @@ void log_manager::output_message( int whichlog, const message_data & msg)
 	m_logs[whichlog].messages[m_logs[whichlog].cur_insert_index].push_back(msg);
 }
 
-void log_manager::stop()
+void MyLog::stop()
 {
 	size_t nums = (sizeof(m_logs) / sizeof(m_logs[0]));
 	for (size_t i = 0; i < nums; ++i)
@@ -124,7 +124,7 @@ void log_manager::stop()
 	m_pthread->join();
 }
 
-void log_manager::work_thread()
+void MyLog::work_thread()
 {
 	size_t nums = (sizeof(m_logs) / sizeof(m_logs[0]));
 	bool bexit = false;
@@ -234,7 +234,7 @@ void log_manager::work_thread()
 	}
 }
 
-void log_manager::gen_file_path(void * pout, size_t out_size, const char * pfile_dir, const char * pfile_prefix, const char * pfile_suffix, const time_t & t)
+void MyLog::gen_file_path(void * pout, size_t out_size, const char * pfile_dir, const char * pfile_prefix, const char * pfile_suffix, const time_t & t)
 {
     assert(pout && out_size);
 	tm tout;

@@ -18,12 +18,6 @@
     <ClCompile Include="..\..\src\main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\log_manager.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\workers.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\MyMemoryPool.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -36,14 +30,14 @@
     <ClCompile Include="..\..\src\MyScopeExit.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\MyLog.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\MyWorkers.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\log_manager.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\workers.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\MyMemoryPool.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -60,6 +54,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\MyException.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\MyLog.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\MyWorkers.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,5 +1,5 @@
-#ifndef PSL_LOG_MANAGER_H_
-#define PSL_LOG_MANAGER_H_
+#ifndef PSL_MY_LOG_H
+#define PSL_MY_LOG_H
 
 #include <stdio.h>
 #include <time.h>
@@ -14,7 +14,7 @@
 
 int get_mmddhhmmss(const time_t & t);
 
-class log_manager
+class MyLog
 {
 public:
 	struct message_data
@@ -23,19 +23,19 @@ public:
 		unsigned int size;
 	};
 public:
-	static log_manager & get_instance();
-	void set_log_info(int whichlog, const char * pfile_prefix, const char * pfile_suffix, const char * pfile_dir, size_t max_size);
+	static MyLog & getInstance();
+	void setLogInfo(int whichlog, const char * pfile_prefix, const char * pfile_suffix, const char * pfile_dir, size_t max_size);
 	void start();
-	void output_message(int whichlog, const message_data & msg);
+	void outputMsg(int whichlog, const message_data & msg);
 	void stop();
 private:
 	void work_thread();
 	static void gen_file_path(void * pout, size_t out_size, const char * pfile_dir, const char * pfile_prefix, const char * pfile_suffix, const time_t & t);
 private:
-	log_manager();
-	log_manager(const log_manager & other) = delete;
-	log_manager & operator = (const log_manager & other) = delete;
-	~log_manager();
+	MyLog();
+	MyLog(const MyLog & other) = delete;
+	MyLog & operator = (const MyLog & other) = delete;
+	~MyLog();
 private:
 	struct log_info 
 	{
@@ -60,9 +60,9 @@ private:
 
 
 
-#define  LOG_MANAGER_OUTPUT(which_log, format_string, ...) \
+#define  MYLOG(which_log, format_string, ...) \
 {\
-    log_manager::message_data msg; \
+    MyLog::message_data msg; \
     msg.size = (unsigned)(sizeof(msg.buffer)-1); \
     int iprintf = snprintf((char*)(msg.buffer), sizeof(msg.buffer), format_string, ##__VA_ARGS__); \
     if (iprintf > 0)\
@@ -71,7 +71,7 @@ private:
         {\
             msg.size = (unsigned)iprintf; \
         }\
-        log_manager::get_instance().output_message(which_log, msg); \
+        MyLog::getInstance().outputMsg(which_log, msg); \
     }\
 }
 

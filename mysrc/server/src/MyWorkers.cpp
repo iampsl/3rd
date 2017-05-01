@@ -1,39 +1,39 @@
 #include <assert.h>
-#include "workers.h"
+#include "MyWorkers.h"
 
-worker::worker()
+MyWorker::MyWorker()
 {
 	m_brun = false;
 	m_cur_insert_index = 0;
 	m_cur_worker_index = 1;
 }
 
-worker::~worker()
+MyWorker::~MyWorker()
 {
 
 }
 
-void worker::start()
+void MyWorker::start()
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	assert(!m_brun);
 	m_brun = true;
-	m_work_thread = std::make_shared<std::thread>(&worker::do_work, this);
+	m_work_thread = std::make_shared<std::thread>(&MyWorker::do_work, this);
 }
 
-void worker::push_back(std::function<void()> w)
+void MyWorker::push_back(std::function<void()> w)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	m_work[m_cur_insert_index].push_back(std::move(w));
 }
 
-void worker::push_front(std::function<void()> w)
+void MyWorker::push_front(std::function<void()> w)
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	m_work[m_cur_insert_index].push_front(std::move(w));
 }
 
-void worker::stop()
+void MyWorker::stop()
 {
 	{
 		std::lock_guard<std::mutex> lock(m_mutex);
@@ -43,7 +43,7 @@ void worker::stop()
 	m_work_thread->join();
 }
 
-void worker::do_work()
+void MyWorker::do_work()
 {
 	bool bexit = false;
 	while (!bexit)
@@ -62,7 +62,7 @@ void worker::do_work()
 			}
 			if (m_work[m_cur_worker_index].empty())
 			{
-				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+				std::this_thread::sleep_for(std::chrono::milliseconds(15));
 			}
 		}
 		else
@@ -80,17 +80,17 @@ void worker::do_work()
 }
 
 
-workers::workers()
+MyWorkers::MyWorkers()
 {
 	m_cur_index = 0;
 }
 
-workers::~workers()
+MyWorkers::~MyWorkers()
 {
 
 }
 
-void workers::start(unsigned int num)
+void MyWorkers::start(unsigned int num)
 {
 	if (0 == num)
 	{
@@ -98,36 +98,30 @@ void workers::start(unsigned int num)
 	}
 	for (unsigned int i = 0; i < num; ++i)
 	{
-		m_pworkers.push_back(std::make_shared<worker>());
-		m_pworkers.back()->start();
+		m_vecWorkers.push_back(std::make_shared<MyWorker>());
+		m_vecWorkers.back()->start();
 	}
 }
 
-void workers::push_back(std::function<void()> w)
+void MyWorkers::push_back(std::function<void()> w)
 {
-	size_t index;
-	{
-		std::lock_guard<std::mutex> lock(m_mutex);
-		index = m_cur_index;
-		m_cur_index = ((m_cur_index + 1) % (m_pworkers.size()));
-	}
-	m_pworkers[index]->push_back(std::move(w));
+	const size_t size = m_vecWorkers.size();
+	m_cur_index = (m_cur_index + 1) % size;
+	size_t index = m_cur_index % size;
+	m_vecWorkers[index]->push_back(std::move(w));
 }
 
-void workers::push_front(std::function<void()> w)
+void MyWorkers::push_front(std::function<void()> w)
 {
-	size_t index;
-	{
-		std::lock_guard<std::mutex> lock(m_mutex);
-		index = m_cur_index;
-		m_cur_index = ((m_cur_index + 1) % (m_pworkers.size()));
-	}
-	m_pworkers[index]->push_front(std::move(w));
+	const size_t size = m_vecWorkers.size();
+	m_cur_index = (m_cur_index + 1) % size;
+	size_t index = m_cur_index % size;
+	m_vecWorkers[index]->push_front(std::move(w));
 }
 
-void workers::stop()
+void MyWorkers::stop()
 {
-	for (auto & i : m_pworkers)
+	for (auto & i : m_vecWorkers)
 	{
 		i->stop();
 	}
