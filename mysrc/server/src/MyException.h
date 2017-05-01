@@ -1,5 +1,5 @@
-#ifndef PSL_MY_EXCEPTION_H_
-#define PSL_MY_EXCEPTION_H_
+#ifndef PSL_MY_EXCEPTION_H
+#define PSL_MY_EXCEPTION_H
 
 #include <stdexcept>
 #include <string>
@@ -18,42 +18,42 @@
 #error "macro have already defined"
 #endif
 
-class my_exception : public std::exception
+class MyException : public std::exception
 {
 public:
-    my_exception() :MY_EXCEPTION_A(*this), MY_EXCEPTION_B(*this)
+	MyException() :MY_EXCEPTION_A(*this), MY_EXCEPTION_B(*this)
     {
 
     }
 
-    my_exception(const char * what) :m_what(what), MY_EXCEPTION_A(*this), MY_EXCEPTION_B(*this)
+	MyException(const char * what) :m_what(what), MY_EXCEPTION_A(*this), MY_EXCEPTION_B(*this)
     {
 
     }
 
-    my_exception(const my_exception & other) : m_what(other.m_what), MY_EXCEPTION_A(*this), MY_EXCEPTION_B(*this)
+	MyException(const MyException & other) : m_what(other.m_what), MY_EXCEPTION_A(*this), MY_EXCEPTION_B(*this)
     {
 
     }
 
-    my_exception(my_exception && other) :MY_EXCEPTION_A(*this), MY_EXCEPTION_B(*this)
+	MyException(MyException && other) :MY_EXCEPTION_A(*this), MY_EXCEPTION_B(*this)
     {
         m_what.swap(other.m_what);
     }
 
-    my_exception & operator = (const my_exception & other)
+	MyException & operator = (const MyException & other)
     {
         m_what = other.m_what;
         return *this;
     }
 
-    my_exception & operator = (my_exception && other)
+	MyException & operator = (MyException && other)
     {
         m_what.swap(other.m_what);
         return *this;
     }
 
-    virtual ~my_exception() override
+    virtual ~MyException() override
     {
 
     }
@@ -63,7 +63,7 @@ public:
         return m_what.c_str();
     }
 
-    my_exception & capture(const char * file, int line, const char * expression)
+	MyException & capture(const char * file, int line, const char * expression)
     {
         std::ostringstream ostrstream;
         ostrstream << "failed expression:" << expression << std::endl;
@@ -73,7 +73,7 @@ public:
     }
 
     template<typename T>
-    my_exception & capture(const char * name, const T & value)
+	MyException & capture(const char * name, const T & value)
     {
         std::ostringstream ostrstream;
         ostrstream << name << ":" << value << std::endl;
@@ -82,8 +82,8 @@ public:
     }
 
 public:
-    my_exception & MY_EXCEPTION_A;
-    my_exception & MY_EXCEPTION_B;
+	MyException & MY_EXCEPTION_A;
+	MyException & MY_EXCEPTION_B;
 private:
     std::string m_what;
 };
@@ -91,7 +91,7 @@ private:
 #define MY_EXCEPTION_A(x) MY_EXCEPTION_OP(x,B)
 #define MY_EXCEPTION_B(x) MY_EXCEPTION_OP(x,A)
 #define MY_EXCEPTION_OP(x,next) MY_EXCEPTION_A.capture((#x),(x)).MY_EXCEPTION_##next
-#define MY_ENSURE(expr) static_assert(std::is_same<decltype((expr)), bool>::value, #expr" is not bool expression"); if((expr));else throw my_exception().capture(__FILE__, __LINE__, (#expr)).MY_EXCEPTION_A
+#define MY_ENSURE(expr) static_assert(std::is_same<decltype((expr)), bool>::value, #expr" is not bool expression"); if((expr));else throw MyException().capture(__FILE__, __LINE__, (#expr)).MY_EXCEPTION_A
 
 
 
