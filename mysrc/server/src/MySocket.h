@@ -8,9 +8,6 @@
 #include "MyMessage.h"
 #include "MyIoService.h"
 
-
-void get_local_remote(boost::asio::ip::tcp::socket & socket, std::string & local, std::string & remote);
-
 class MySocket : public std::enable_shared_from_this<MySocket>
 {
 public:

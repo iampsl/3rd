@@ -26,6 +26,7 @@
     <ClCompile Include="..\..\src\MySocket.cpp" />
     <ClCompile Include="..\..\src\MyScopeExit.cpp" />
     <ClCompile Include="..\..\src\MyWorkers.cpp" />
+    <ClCompile Include="..\..\src\MyWebSocket.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\MyLog.h" />
@@ -36,6 +37,7 @@
     <ClInclude Include="..\..\src\MyException.h" />
     <ClInclude Include="..\..\src\MyScopeExit.h" />
     <ClInclude Include="..\..\src\MyWorkers.h" />
+    <ClInclude Include="..\..\src\MyWebSocket.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{5034C672-2660-4D7A-AEAC-DD254A34066D}</ProjectGuid>

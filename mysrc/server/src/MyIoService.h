@@ -4,6 +4,8 @@
 #include <boost/asio.hpp>
 #include "MyMemoryPool.h"
 
+void get_local_remote(boost::asio::ip::tcp::socket & socket, std::string & local, std::string & remote);
+
 class MyIoService
 {
 public:

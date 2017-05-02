@@ -36,6 +36,9 @@
     <ClCompile Include="..\..\src\MyWorkers.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\MyWebSocket.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\MyMemoryPool.h">
@@ -60,6 +63,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\MyWorkers.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\MyWebSocket.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,13 +1,12 @@
-#ifndef PSL_WS_SESSION_H_
-#define PSL_WS_SESSION_H_
+#ifndef PSL_MY_WEB_SOCKET_H
+#define PSL_MY_WEB_SOCKET_H
 
 #include <inttypes.h>
 #include <deque>
 #include <string>
 #include <memory>
-#include <boost/asio.hpp>
-#include <mutex>
-#include "buffer_t.h"
+#include "MyMessage.h"
+#include "MyIoService.h"
 
 class http_request
 {
@@ -28,14 +27,16 @@ private:
 	std::list<std::pair<std::string, std::string>> m_http_heads;
 };
 
-class ws_session : public std::enable_shared_from_this<ws_session>
+class MyWebSocket : public std::enable_shared_from_this<MyWebSocket>
 {
 public:
-	ws_session(boost::asio::io_service & io_service);
-	virtual ~ws_session();
-	void start_read();
-	boost::asio::ip::tcp::socket & get_socket();
-	boost::asio::io_service & get_io_service();
+	MyWebSocket(MyIoService * pservice);
+	MyWebSocket(const MyWebSocket &) = delete;
+	MyWebSocket & operator = (const MyWebSocket &) = delete;
+	virtual ~MyWebSocket();
+	void startRead();
+	boost::asio::ip::tcp::socket & getSocket();
+	MyIoService* getIoService();
 	void send_message(const void * pdata, size_t size, uint8_t data_type);
 	void send_ping();
 	void close();
@@ -49,26 +50,30 @@ private:
 	uint32_t proc_data(uint8_t * pdata, uint32_t size, bool & procFinish);
 	void proc_data(std::shared_ptr<ws_session> psession);
 private:
+	struct MessageData
+	{
+		void *pdata;
+		unsigned int size;
+		unsigned int retSize;
+	};
+private:
 	void on_read(std::shared_ptr<ws_session> psession, const boost::system::error_code& error, std::size_t bytes_transferred);
 	void on_write(std::shared_ptr<ws_session> psession, buffer_t * pdata, const boost::system::error_code& error, std::size_t bytes_transferred);
 private:
-	ws_session(const ws_session & other) = delete;
-	ws_session & operator = (const ws_session & other) = delete;
-private:
-	boost::asio::io_service & m_io_service;
+	MyIoService * m_ioservice;
 	boost::asio::ip::tcp::socket m_socket;
-	uint8_t m_read_data_buffer[10240];
-	uint32_t m_read_data_size;
-	uint32_t m_process_data_size;
-	bool m_close_socket;
-	bool m_bsending;
+	uint8_t m_readBuffer[1024];
+	uint32_t m_readedSize;
+	uint32_t m_processedSize;
+	bool m_isClosed;
+	bool m_isSending;
 	bool m_http_handshake;
 	uint8_t m_frames_opcode;
-	std::vector<buffer_t*> m_frames;
+	std::vector<MessageData> m_frames;
 	size_t m_frames_total_size;
-	std::deque<buffer_t*> m_buffers_deque;
+	std::deque<MessageData> m_msgsDeque;
 };
 
-#endif // !PSL_SESSION_H_
+#endif // !PSL_MY_WEB_SOCKET_H
 
 

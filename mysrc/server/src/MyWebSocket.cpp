@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <openssl/sha.h>
-#include "ws_session.h"
-#include "log_manager.h"
+#include "MyWebSocket.h"
 
 ws_session::ws_session(boost::asio::io_service & io_service) :m_io_service(io_service), m_socket(io_service)
 {
