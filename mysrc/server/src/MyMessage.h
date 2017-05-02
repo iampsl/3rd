@@ -1,11 +1,11 @@
 #ifndef PSL_MY_MESSAGE_H
 #define PSL_MY_MESSAGE_H
 
-struct MyMessage
+class MyMessage
 {
-	void * pdata;
-	unsigned int size;
-	unsigned int retSize;
+public:
+	virtual unsigned int getMsgSize() = 0;
+	virtual bool serialize() = 0;
 };
 
 #endif // !PSL_MY_MESSAGE_H

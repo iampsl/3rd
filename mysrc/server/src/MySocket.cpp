@@ -56,35 +56,34 @@ MyIoService* MySocket::getIoService()
 	return m_ioservice;
 }
 
-void MySocket::sendMsg(MyMessage msg)
+void MySocket::sendMsg(MyMessage & msg)
 {
-	if (nullptr == msg.pdata)
+	unsigned int size =  msg.getMsgSize();
+	if (0 == size)
 	{
-		return;
-	}
-	if (0 == msg.size)
-	{
-		if (0 != msg.retSize)
-		{
-			m_ioservice->getMemoryPool().free(msg.pdata, msg.retSize);
-		}
 		return;
 	}
 	if (m_isClosed)
 	{
-		m_ioservice->getMemoryPool().free(msg.pdata, msg.retSize);
+		return;
+	}
+	MessageData data;
+	data.size = size;
+	data.pdata = m_ioservice->getMemoryPool().malloc(data.size, data.retSize);
+	if (nullptr == data.pdata)
+	{
 		return;
 	}
 	if (m_isSending)
 	{
-		m_msgsDeque.push_back(msg);
+		m_msgsDeque.push_back(data);
 	}
 	else
 	{
 		assert(m_msgsDeque.empty());
 		m_isSending = true;
 		std::shared_ptr<MySocket> psocket = shared_from_this();
-		boost::asio::async_write(m_socket, boost::asio::buffer(msg.pdata, msg.size), std::bind(&MySocket::onWrite, this, std::move(psocket), msg, std::placeholders::_1, std::placeholders::_2));
+		boost::asio::async_write(m_socket, boost::asio::buffer(data.pdata, data.size), std::bind(&MySocket::onWrite, this, std::move(psocket), data, std::placeholders::_1, std::placeholders::_2));
 	}
 }
 
@@ -181,15 +180,15 @@ void MySocket::onConnect(std::shared_ptr<MySocket> pself, const boost::system::e
 	m_socket.async_read_some(boost::asio::buffer(m_readBuffer + m_readedSize, sizeof(m_readBuffer) - m_readedSize), std::bind(&MySocket::onRead, this, std::move(pself), std::placeholders::_1, std::placeholders::_2));
 }
 
-void MySocket::onWrite(std::shared_ptr<MySocket> pself, MyMessage msg, const boost::system::error_code& error, std::size_t bytesTransferred)
+void MySocket::onWrite(std::shared_ptr<MySocket> pself, MessageData data, const boost::system::error_code& error, std::size_t bytesTransferred)
 {
-	m_ioservice->getMemoryPool().free(msg.pdata, msg.retSize);
+	m_ioservice->getMemoryPool().free(data.pdata, data.retSize);
 	if (error)
 	{
 		close();
 		return;
 	}
-	assert(msg.size == bytesTransferred);
+	assert(data.size == bytesTransferred);
 	if (m_isClosed)
 	{
 		return;
@@ -200,8 +199,8 @@ void MySocket::onWrite(std::shared_ptr<MySocket> pself, MyMessage msg, const boo
 	}
 	else
 	{
-		MyMessage msg = m_msgsDeque.front();
+		MessageData nextData = m_msgsDeque.front();
 		m_msgsDeque.pop_front();
-		boost::asio::async_write(m_socket, boost::asio::buffer(msg.pdata, msg.size), std::bind(&MySocket::onWrite, this, std::move(pself), msg, std::placeholders::_1, std::placeholders::_2));
+		boost::asio::async_write(m_socket, boost::asio::buffer(nextData.pdata, nextData.size), std::bind(&MySocket::onWrite, this, std::move(pself), nextData, std::placeholders::_1, std::placeholders::_2));
 	}
 }
