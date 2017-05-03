@@ -19,22 +19,23 @@ public:
 	void startConnect(boost::asio::ip::tcp::endpoint local_endpoint, boost::asio::ip::tcp::endpoint remote_endpoint);
 	boost::asio::ip::tcp::socket & getSocket();
 	MyIoService* getIoService();
-	void sendMsg(MyMessage & msg);
-	void close();
+	virtual void sendMsg(MyMessage & msg);
+	virtual void close();
 	size_t getReadBufferSize();
 	void procData(std::shared_ptr<MySocket> pself);
 protected:
 	virtual void closeCallback() = 0;
 	virtual uint32_t procData(uint8_t * pdata, uint32_t size, bool & procFinish) = 0;
 	virtual void login() = 0;
-private:
+protected:
 	struct MessageData
 	{
 		void *pdata;
 		unsigned int size;
 		unsigned int retSize;
 	};
-private:
+protected:
+	void doSendMsg(const MessageData & data);
 	void onRead(std::shared_ptr<MySocket> pself, const boost::system::error_code& error, std::size_t bytesTransferred);
 	void onConnect(std::shared_ptr<MySocket> pself, const boost::system::error_code& error);
 	void onWrite(std::shared_ptr<MySocket> pself, MessageData msg, const boost::system::error_code& error, std::size_t bytesTransferred);

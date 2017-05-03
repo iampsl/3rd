@@ -2,36 +2,19 @@
 #include <openssl/sha.h>
 #include "MyWebSocket.h"
 
-ws_session::ws_session(boost::asio::io_service & io_service) :m_io_service(io_service), m_socket(io_service)
+MyWebSocket::MyWebSocket(MyIoService * pservice) : MySocket(pservice)
 {
-	m_read_data_size = 0;
-	m_close_socket = false;
-	m_bsending = false;
-	m_http_handshake = false;
+	m_isClient = false;
+	m_isHandshaked = false;
 }
 
-ws_session::~ws_session()
+MyWebSocket::~MyWebSocket()
 {
 
 }
 
-void ws_session::start_read()
-{
-	std::shared_ptr<ws_session> psession = shared_from_this();
-	m_socket.async_read_some(boost::asio::buffer(m_read_data_buffer + m_read_data_size, sizeof(m_read_data_buffer) - m_read_data_size), std::bind(&ws_session::on_read, this, std::move(psession), std::placeholders::_1, std::placeholders::_2));
-}
 
-boost::asio::ip::tcp::socket & ws_session::get_socket()
-{
-	return m_socket;
-}
-
-boost::asio::io_service & ws_session::get_io_service()
-{
-	return m_io_service;
-}
-
-void ws_session::send_ping()
+void MyWebSocket::sendPing()
 {
 	uint8_t opcode = 137;
 	uint8_t payload = 0;
@@ -81,7 +64,7 @@ uint64_t ntohll(uint64_t val)
 	}
 }
 
-void ws_session::send_message(const void * pdata, size_t size, uint8_t data_type)
+void MyWebSocket::sendMsg(MyMessage & msg)
 {
 	if (pdata == nullptr || size == 0)
 	{
@@ -128,25 +111,6 @@ void ws_session::send_message(const void * pdata, size_t size, uint8_t data_type
 		memcpy(pbuffer + 10, pdata, size);
 		pmsg->set_data_size(10 + size);
 		send_message(pmsg);
-	}
-}
-
-void ws_session::send_message(buffer_t* pdata)
-{
-	if (m_close_socket)
-	{
-		delete pdata;
-		return;
-	}
-	if (m_bsending)
-	{
-		m_buffers_deque.push_back(pdata);
-	}
-	else
-	{
-		m_bsending = true;
-		std::shared_ptr<ws_session> psession = shared_from_this();
-		boost::asio::async_write(m_socket, boost::asio::buffer(pdata->get_buffer(), pdata->get_data_size()), std::bind(&ws_session::on_write, this, std::move(psession), pdata, std::placeholders::_1, std::placeholders::_2));
 	}
 }
 
@@ -420,7 +384,7 @@ uint32_t ws_session::proc_data(uint8_t * pdata, uint32_t size, bool & procFinish
 	}
 }
 
-void ws_session::close()
+void MyWebSocket::close()
 {
 	if (!m_close_socket)
 	{
@@ -441,81 +405,6 @@ void ws_session::close()
 		}
 		m_buffers_deque.clear();
 		close_session_callback();
-	}
-}
-
-void ws_session::proc_data(std::shared_ptr<ws_session> psession)
-{
-	if (m_close_socket)
-	{
-		return;
-	}
-	bool procFinish = false;
-	uint32_t process_size;
-	while (true)
-	{
-		process_size = proc_data(m_read_data_buffer + m_process_data_size, m_read_data_size - m_process_data_size, procFinish);
-		m_process_data_size += process_size;
-		if (0 == process_size || !procFinish)
-		{
-			break;
-		}
-	}
-	if (0 == process_size)
-	{
-		if (0 != m_process_data_size)
-		{
-			memcpy(m_read_data_buffer, m_read_data_buffer + m_process_data_size, m_read_data_size - m_process_data_size);
-			m_read_data_size -= m_process_data_size;
-		}
-		size_t empty_size = sizeof(m_read_data_buffer) - m_read_data_size;
-		if (empty_size != 0)
-		{
-			if (!m_close_socket)
-			{
-				m_socket.async_read_some(boost::asio::buffer(m_read_data_buffer + m_read_data_size, empty_size), std::bind(&ws_session::on_read, this, std::move(psession), std::placeholders::_1, std::placeholders::_2));
-			}
-		}
-		else
-		{
-			close();
-		}
-	}
-}
-
-void ws_session::on_read(std::shared_ptr<ws_session> psession, const boost::system::error_code& error, std::size_t bytes_transferred)
-{
-	if (error)
-	{
-		close();
-		return;
-	}
-	m_read_data_size += (uint32_t)bytes_transferred;
-	m_process_data_size = 0;
-	proc_data(std::move(psession));
-}
-
-void ws_session::on_write(std::shared_ptr<ws_session> psession, buffer_t * pdata, const boost::system::error_code& error, std::size_t bytes_transferred)
-{
-	delete pdata;
-	if (error)
-	{
-		close();
-		return;
-	}
-	if (m_close_socket)
-	{
-		return;
-	}
-	if (m_buffers_deque.empty())
-	{
-		m_bsending = false;
-	}
-	else
-	{
-		buffer_t * psendData = m_buffers_deque.front();
-		m_buffers_deque.pop_front();
-		boost::asio::async_write(m_socket, boost::asio::buffer(psendData->get_buffer(), psendData->get_data_size()), std::bind(&ws_session::on_write, this, std::move(psession), psendData, std::placeholders::_1, std::placeholders::_2));
 	}
 }
 
