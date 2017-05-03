@@ -92,7 +92,6 @@ void MySocket::procData(std::shared_ptr<MySocket> pself)
 		m_processedSize += processedSize;
 		if (0 == processedSize)
 		{
-			assert(false == procFinish);
 			break;
 		}
 		if (false == procFinish)
@@ -115,7 +114,10 @@ void MySocket::procData(std::shared_ptr<MySocket> pself)
 		size_t empty_size = sizeof(m_readBuffer) - m_readedSize;
 		if (empty_size != 0)
 		{
-			m_socket.async_read_some(boost::asio::buffer(m_readBuffer + m_readedSize, empty_size), std::bind(&MySocket::onRead, this, std::move(pself), std::placeholders::_1, std::placeholders::_2));
+			if (!m_isClosed)
+			{
+				m_socket.async_read_some(boost::asio::buffer(m_readBuffer + m_readedSize, empty_size), std::bind(&MySocket::onRead, this, std::move(pself), std::placeholders::_1, std::placeholders::_2));
+			}
 		}
 		else
 		{
