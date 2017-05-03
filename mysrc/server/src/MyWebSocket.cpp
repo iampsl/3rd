@@ -390,13 +390,19 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 			const char * pstr = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
 			size_t str_len = strlen(pstr);
 			websocket_accept += "\r\n\r\n";
-			buffer_t* pbuffer = new buffer_t(str_len + websocket_accept.size());
-			memcpy(pbuffer->get_buffer(), pstr, str_len);
-			memcpy(pbuffer->get_buffer() + str_len, &(websocket_accept[0]), websocket_accept.size());
-			pbuffer->set_data_size(str_len + websocket_accept.size());
-			send_message(pbuffer);
-			m_http_handshake = true;
-			http_handshake_callback();
+			MessageData data;
+			data.size = (unsigned int)(str_len + websocket_accept.size());
+			data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
+			if (nullptr == data.pdata)
+			{
+				close();
+				return 0;
+			}
+			memcpy(data.pdata, pstr, str_len);
+			memcpy((uint8_t*)(data.pdata) + str_len, &(websocket_accept[0]), websocket_accept.size());
+			doSendMsg(data);
+			m_isHandshaked = true;
+			httpFinishCallback();
 			procFinish = true;
 			return fendpos;
 		}
