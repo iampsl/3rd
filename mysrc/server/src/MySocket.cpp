@@ -52,6 +52,8 @@ void MySocket::sendMsg(MyMessage & msg)
 	{
 		return;
 	}
+	bool bserialize = msg.serialize(data.pdata, data.size);
+	assert(true == bserialize);
 	doSendMsg(data);
 }
 

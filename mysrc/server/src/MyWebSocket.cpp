@@ -2,29 +2,159 @@
 #include <openssl/sha.h>
 #include "MyWebSocket.h"
 
-MyWebSocket::MyWebSocket(MyIoService * pservice) : MySocket(pservice)
+bool http_request::parse(const char * pchar, uint32_t endpos)
 {
-	m_isClient = false;
-	m_isHandshaked = false;
+	uint32_t lineLength;
+	if (!parse_line(pchar, lineLength))
+	{
+		return false;
+	}
+	const char * pend = pchar + endpos;
+	for (const char * pbegin = pchar + lineLength; pbegin < pend;)
+	{
+		uint32_t headLength;
+		if (!parse_head(pbegin, headLength))
+		{
+			return false;
+		}
+		pbegin += headLength;
+	}
+	return true;
 }
 
-MyWebSocket::~MyWebSocket()
+const char * http_request::get_http_method() const
 {
-
+	return m_http_method.c_str();
 }
 
-
-void MyWebSocket::sendPing()
+const char * http_request::get_http_version() const
 {
-	uint8_t opcode = 137;
-	uint8_t payload = 0;
-	buffer_t * pmsg = new buffer_t(2);
-	uint8_t * pbuffer = pmsg->get_buffer();
-	pbuffer[0] = opcode;
-	pbuffer[1] = payload;
-	pmsg->set_data_size(2);
-	send_message(pmsg);
+	return m_http_version.c_str();
 }
+
+const char * http_request::get_resource_path() const
+{
+	return m_resource_path.c_str();
+}
+
+const char * http_request::get_http_head(const char * key) const
+{
+	if (nullptr == key)
+	{
+		return nullptr;
+	}
+	for (auto & i : m_http_heads)
+	{
+		if (i.first == key)
+		{
+			return i.second.c_str();
+		}
+	}
+	return nullptr;
+}
+
+bool http_request::parse_line(const char * pchar, uint32_t & lineLength)
+{
+	uint32_t i = 0;
+	while (pchar[i] != ' ' && (pchar[i] != '\r' || pchar[i + 1] != '\n'))
+	{
+		++i;
+	}
+	if (pchar[i] != ' ')
+	{
+		return false;
+	}
+	if (i == 0)
+	{
+		return false;
+	}
+	m_http_method.assign(pchar, i);
+	while (pchar[i] == ' ')
+	{
+		++i;
+	}
+	uint32_t j = i;
+	while (pchar[j] != ' ' && (pchar[j] != '\r' || pchar[j + 1] != '\n'))
+	{
+		++j;
+	}
+	if (pchar[j] != ' ')
+	{
+		return false;
+	}
+	m_resource_path.assign(pchar + i, j - i);
+	while (pchar[j] == ' ')
+	{
+		++j;
+	}
+	uint32_t k = j;
+	while (pchar[k] != '\r' || pchar[k + 1] != '\n')
+	{
+		++k;
+	}
+	if (j < k)
+	{
+		m_http_version.assign(pchar + j, k - j);
+		lineLength = k + 2;
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool http_request::parse_head(const char * pchar, uint32_t & headLength)
+{
+	uint32_t i = 0;
+	while (pchar[i] != ':' && (pchar[i] != '\r' || pchar[i + 1] != '\n'))
+	{
+		++i;
+	}
+	if (pchar[i] != ':')
+	{
+		return false;
+	}
+	if (i == 0)
+	{
+		return false;
+	}
+	std::string key(pchar, i);
+	uint32_t j = i + 1;
+	while (pchar[j] != '\r' || pchar[j + 1] != '\n')
+	{
+		++j;
+	}
+	std::string value;
+	trim(pchar, i + 1, j, value);
+	if (!value.empty())
+	{
+		m_http_heads.push_back(std::pair<std::string, std::string>(std::move(key), std::move(value)));
+	}
+	headLength = j + 2;
+	return true;
+}
+
+void http_request::trim(const char * pchar, uint32_t begPos, uint32_t endPos, std::string & outStr)
+{
+	outStr.clear();
+	while (begPos < endPos)
+	{
+		if (pchar[begPos] == ' ')
+		{
+			++begPos;
+		}
+		else
+		{
+			break;
+		}
+	}
+	if (begPos < endPos)
+	{
+		outStr.assign(pchar + begPos, endPos - begPos);
+	}
+}
+
 
 bool is_bigend()
 {
@@ -61,56 +191,6 @@ uint64_t ntohll(uint64_t val)
 	else
 	{
 		return ((uint64_t)ntohl((int)(val >> 32 & 0xffffffff))) | (((uint64_t)ntohl((int)(val & 0xffffffff))) << 32);
-	}
-}
-
-void MyWebSocket::sendMsg(MyMessage & msg)
-{
-	if (pdata == nullptr || size == 0)
-	{
-		return;
-	}
-	if (data_type != 1 && data_type != 2)
-	{
-		data_type = 2;
-	}
-	uint8_t opcode = (15 & data_type) | 128;
-	if (size <= 125)
-	{
-		uint8_t payload = (uint8_t)size;
-		buffer_t* pmsg = new buffer_t(2+size);
-		uint8_t * pbuffer = pmsg->get_buffer();
-		pbuffer[0] = opcode;
-		pbuffer[1] = payload;
-		memcpy(pbuffer + 2, pdata, size);
-		pmsg->set_data_size(2+size);
-		send_message(pmsg);
-	}
-	else if (size <= 65535)
-	{
-		uint8_t payload = (uint8_t)126;
-		buffer_t* pmsg = new buffer_t(4 + size);
-		uint8_t * pbuffer = pmsg->get_buffer();
-		pbuffer[0] = opcode;
-		pbuffer[1] = payload;
-		uint16_t * plength = (uint16_t*)(pbuffer + 2);
-		*plength = htons((uint16_t)size);
-		memcpy(pbuffer + 4, pdata, size);
-		pmsg->set_data_size(4 + size);
-		send_message(pmsg);
-	}
-	else
-	{
-		uint8_t payload = (uint8_t)127;
-		buffer_t * pmsg = new buffer_t(10 + size);
-		uint8_t * pbuffer = pmsg->get_buffer();
-		pbuffer[0] = opcode;
-		pbuffer[1] = payload;
-		uint64_t *plength = (uint64_t*)(pbuffer + 2);
-		*plength = htonll((uint64_t)size);
-		memcpy(pbuffer + 10, pdata, size);
-		pmsg->set_data_size(10 + size);
-		send_message(pmsg);
 	}
 }
 
@@ -161,53 +241,165 @@ std::string base64_encode(const unsigned char* Data, int DataByte)
 	return std::move(strEncode);
 }
 
-uint32_t ws_session::proc_data(uint8_t * pdata, uint32_t size, bool & procFinish)
+MyWebSocket::MyWebSocket(MyIoService * pservice) : MySocket(pservice)
 {
-	if (!m_http_handshake)
+	m_isClient = false;
+	m_isHandshaked = false;
+}
+
+MyWebSocket::~MyWebSocket()
+{
+
+}
+
+void MyWebSocket::close()
+{
+	auto ioservice = getIoService();
+	for (auto & value : m_frames)
 	{
-		if (size < 4)
+		ioservice->getMemoryPool().free(value.pdata, value.retSize);
+	}
+	m_frames.clear();
+	MySocket::close();
+}
+
+void MyWebSocket::sendPing()
+{
+	uint8_t opcode = 137;
+	uint8_t payload = 0;
+	MessageData data;
+	data.size = 2;
+	data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
+	if (nullptr == data.pdata)
+	{
+		return;
+	}
+	uint8_t * pbuffer = (uint8_t*) (data.pdata);
+	pbuffer[0] = opcode;
+	pbuffer[1] = payload;
+	doSendMsg(data);
+}
+
+void MyWebSocket::sendMsg(MyMessage & msg)
+{
+	unsigned int size = msg.getMsgSize();
+	if (0 == size)
+	{
+		return;
+	}
+	const uint8_t data_type = 2;
+	uint8_t opcode = (15 & data_type) | 128;
+	if (size <= 125)
+	{
+		uint8_t payload = (uint8_t)size;
+		MessageData data;
+		data.size = 2 + size;
+		data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
+		if (nullptr == data.pdata)
 		{
-			return 0;
+			return;
 		}
-		if (pdata[0] != 'G' || pdata[1] != 'E' || pdata[2] != 'T' || pdata[3] != ' ')
+		uint8_t * pbuffer = (uint8_t*)(data.pdata);
+		pbuffer[0] = opcode;
+		pbuffer[1] = payload;
+		bool bserialize = msg.serialize(pbuffer + 2, size);
+		assert(true == bserialize);
+		doSendMsg(data);
+	}
+	else if (size <= 65535)
+	{
+		uint8_t payload = (uint8_t)126;
+		MessageData data;
+		data.size = 4 + size;
+		data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
+		if (nullptr == data.pdata)
 		{
-			close();
-			return 0;
+			return;
 		}
-		uint32_t fendpos = find_http_request_end_pos((const char *)pdata, size);
-		if (0 == fendpos)
+		uint8_t * pbuffer = (uint8_t*)(data.pdata);
+		pbuffer[0] = opcode;
+		pbuffer[1] = payload;
+		uint16_t * plength = (uint16_t*)(pbuffer + 2);
+		*plength = htons((uint16_t)size);
+		bool bserialize = msg.serialize(pbuffer+4, size);
+		assert(true == bserialize);
+		doSendMsg(data);
+	}
+	else
+	{
+		uint8_t payload = (uint8_t)127;
+		MessageData data;
+		data.size = 10 + size;
+		data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
+		if (nullptr == data.pdata)
 		{
-			return 0;
+			return;
 		}
-		http_request hreq;
-		if (!hreq.parse((const char*)pdata, fendpos-2))
+		uint8_t * pbuffer = (uint8_t*)(data.pdata);
+		pbuffer[0] = opcode;
+		pbuffer[1] = payload;
+		uint64_t *plength = (uint64_t*)(pbuffer + 2);
+		*plength = htonll((uint64_t)size);
+		bool bserialize = msg.serialize(pbuffer + 10, size);
+		assert(true == bserialize);
+		doSendMsg(data);
+	}
+}
+
+uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish)
+{
+	if (false == m_isHandshaked)
+	{
+		if (m_isClient)
 		{
-			close();
-			return 0;
+
 		}
-		const char * pwebsocket_key = hreq.get_http_head("Sec-WebSocket-Key");
-		if (nullptr == pwebsocket_key)
+		else
 		{
-			close();
-			return 0;
+			if (size < 4)
+			{
+				return 0;
+			}
+			if (pdata[0] != 'G' || pdata[1] != 'E' || pdata[2] != 'T' || pdata[3] != ' ')
+			{
+				close();
+				return 0;
+			}
+			uint32_t fendpos = find_http_request_end_pos((const char *)pdata, size);
+			if (0 == fendpos)
+			{
+				return 0;
+			}
+			http_request hreq;
+			if (!hreq.parse((const char*)pdata, fendpos - 2))
+			{
+				close();
+				return 0;
+			}
+			const char * pwebsocket_key = hreq.get_http_head("Sec-WebSocket-Key");
+			if (nullptr == pwebsocket_key)
+			{
+				close();
+				return 0;
+			}
+			std::string websocket_key(pwebsocket_key);
+			websocket_key += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+			unsigned char sha_value[SHA_DIGEST_LENGTH];
+			SHA1((unsigned char *)(&websocket_key[0]), websocket_key.size(), sha_value);
+			std::string websocket_accept = base64_encode(sha_value, sizeof(sha_value));
+			const char * pstr = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
+			size_t str_len = strlen(pstr);
+			websocket_accept += "\r\n\r\n";
+			buffer_t* pbuffer = new buffer_t(str_len + websocket_accept.size());
+			memcpy(pbuffer->get_buffer(), pstr, str_len);
+			memcpy(pbuffer->get_buffer() + str_len, &(websocket_accept[0]), websocket_accept.size());
+			pbuffer->set_data_size(str_len + websocket_accept.size());
+			send_message(pbuffer);
+			m_http_handshake = true;
+			http_handshake_callback();
+			procFinish = true;
+			return fendpos;
 		}
-		std::string websocket_key(pwebsocket_key);
-		websocket_key += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-		unsigned char sha_value[SHA_DIGEST_LENGTH];
-		SHA1((unsigned char *)(&websocket_key[0]), websocket_key.size(), sha_value);
-		std::string websocket_accept = base64_encode(sha_value, sizeof(sha_value));
-		const char * pstr = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
-		size_t str_len = strlen(pstr);
-		websocket_accept += "\r\n\r\n";
-		buffer_t* pbuffer = new buffer_t(str_len + websocket_accept.size());
-		memcpy(pbuffer->get_buffer(), pstr, str_len);
-		memcpy(pbuffer->get_buffer() + str_len, &(websocket_accept[0]), websocket_accept.size());
-		pbuffer->set_data_size(str_len + websocket_accept.size());
-		send_message(pbuffer);
-		m_http_handshake = true;
-		http_handshake_callback();
-		procFinish = true;
-		return fendpos;
 	}
 	else
 	{
@@ -384,179 +576,8 @@ uint32_t ws_session::proc_data(uint8_t * pdata, uint32_t size, bool & procFinish
 	}
 }
 
-void MyWebSocket::close()
-{
-	if (!m_close_socket)
-	{
-		m_close_socket = true;
-		boost::system::error_code ec;
-		m_socket.close(ec);
-		for (auto i : m_frames)
-		{
-			if (i)
-			{
-				delete i;
-			}
-		}
-		m_frames.clear();
-		for (auto i : m_buffers_deque)
-		{
-			delete i;
-		}
-		m_buffers_deque.clear();
-		close_session_callback();
-	}
-}
 
-bool http_request::parse(const char * pchar, uint32_t endpos)
+void MyWebSocket::login()
 {
-	uint32_t lineLength;
-	if (!parse_line(pchar, lineLength))
-	{
-		return false;
-	}
-	const char * pend = pchar + endpos;
-	for (const char * pbegin = pchar + lineLength; pbegin < pend;)
-	{
-		uint32_t headLength;
-		if (!parse_head(pbegin, headLength))
-		{
-			return false;
-		}
-		pbegin += headLength;
-	}
-	return true;
-}
-
-const char * http_request::get_http_method() const
-{
-	return m_http_method.c_str();
-}
-
-const char * http_request::get_http_version() const
-{
-	return m_http_version.c_str();
-}
-
-const char * http_request::get_resource_path() const
-{
-	return m_resource_path.c_str();
-}
-
-const char * http_request::get_http_head(const char * key) const
-{
-	if (nullptr == key)
-	{
-		return nullptr;
-	}
-	for (auto & i : m_http_heads)
-	{
-		if (i.first == key)
-		{
-			return i.second.c_str();
-		}
-	}
-	return nullptr;
-}
-
-bool http_request::parse_line(const char * pchar, uint32_t & lineLength)
-{
-	uint32_t i = 0;
-	while (pchar[i] != ' ' && (pchar[i] != '\r' || pchar[i+1] != '\n'))
-	{
-		++i;
-	}
-	if (pchar[i] != ' ')
-	{
-		return false;
-	}
-	if (i == 0)
-	{
-		return false;
-	}
-	m_http_method.assign(pchar, i);
-	while (pchar[i] == ' ')
-	{
-		++i;
-	}
-	uint32_t j = i;
-	while (pchar[j] != ' ' && (pchar[j] != '\r' || pchar[j + 1] != '\n'))
-	{
-		++j;
-	}
-	if (pchar[j] != ' ')
-	{
-		return false;
-	}
-	m_resource_path.assign(pchar + i, j - i);
-	while (pchar[j] == ' ')
-	{
-		++j;
-	}
-	uint32_t k = j;
-	while (pchar[k] != '\r' || pchar[k+1] != '\n')
-	{
-		++k;
-	}
-	if (j < k)
-	{
-		m_http_version.assign(pchar + j, k - j);
-		lineLength = k + 2;
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-bool http_request::parse_head(const char * pchar, uint32_t & headLength)
-{
-	uint32_t i = 0;
-	while (pchar[i] != ':' && (pchar[i] != '\r' || pchar[i+1] !='\n'))
-	{
-		++i;
-	}
-	if (pchar[i] != ':')
-	{
-		return false;
-	}
-	if (i == 0)
-	{
-		return false;
-	}
-	std::string key(pchar, i);
-	uint32_t j = i + 1;
-	while (pchar[j] != '\r' || pchar[j+1] != '\n')
-	{
-		++j;
-	}
-	std::string value;
-	trim(pchar, i + 1, j, value);
-	if (!value.empty())
-	{
-		m_http_heads.push_back(std::pair<std::string, std::string>(std::move(key), std::move(value)));
-	}
-	headLength = j + 2;
-	return true;
-}
-
-void http_request::trim(const char * pchar, uint32_t begPos, uint32_t endPos, std::string & outStr)
-{
-	outStr.clear();
-	while (begPos < endPos)
-	{
-		if (pchar[begPos] == ' ')
-		{
-			++begPos;
-		}
-		else
-		{
-			break;
-		}
-	}
-	if (begPos < endPos)
-	{
-		outStr.assign(pchar + begPos, endPos - begPos);
-	}
+	m_isClient = true;
 }

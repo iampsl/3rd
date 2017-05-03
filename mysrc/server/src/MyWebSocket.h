@@ -30,14 +30,14 @@ public:
 	MyWebSocket & operator = (const MyWebSocket &) = delete;
 	virtual ~MyWebSocket() override;
 	virtual void sendMsg(MyMessage & msg) override;
-	virtual void close() override;
+	virtual void close() override final;
 	void sendPing();
 protected:
 	virtual void httpFinishCallback() = 0;
 	virtual void pingCallback() = 0;
 	virtual void pongCallback() = 0;
-	virtual uint32_t procData(uint8_t * pdata, uint32_t size, bool & procFinish) override;
-	virtual void login() override;
+	virtual uint32_t procData(uint8_t * pdata, uint32_t size, bool & procFinish) override final;
+	virtual void login() override final;
 	virtual void procMsg(uint8_t * pdata, uint32_t size, uint8_t type, bool & procFinish) = 0;
 private:
 	bool m_isClient;
