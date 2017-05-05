@@ -51,8 +51,8 @@ MyLog & MyLog::getInstance()
 void MyLog::setLogInfo(int whichlog, const char * pfile_prefix, const char * pfile_suffix, const char * pfile_dir, size_t max_size)
 {
 	size_t nums = (sizeof(m_logs) / sizeof(m_logs[0]));
-    assert(whichlog >= 0 && whichlog < nums);
-	if (whichlog < 0 || whichlog >= nums)
+    assert(whichlog >= 0 && whichlog < (int)nums);
+	if (whichlog < 0 || whichlog >= (int)nums)
 	{
 		return;
 	}
@@ -95,8 +95,8 @@ void MyLog::start()
 void MyLog::outputMsg( int whichlog, const message_data & msg)
 {
 	size_t nums = (sizeof(m_logs) / sizeof(m_logs[0]));
-    assert(whichlog >= 0 && whichlog < nums);
-	if (whichlog < 0 || whichlog >= nums)
+    assert(whichlog >= 0 && whichlog < (int)nums);
+	if (whichlog < 0 || whichlog >= (int)nums)
 	{
 		return;
 	}

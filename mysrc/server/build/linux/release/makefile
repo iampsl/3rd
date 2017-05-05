@@ -1,11 +1,11 @@
 #目标名称
-TARGET=haoserver
+TARGET=test
 
 #目标存放目录
 TARGET_DIR=./
 
 #源文件目录
-SOURCE_DIR=../src/
+SOURCE_DIR=../../../src/
 
 #中间文件目录
 TEMP=./objs/
@@ -14,19 +14,19 @@ TEMP=./objs/
 CC=g++
 
 #编译选项
-COMPLIE_FLAGS=-Wall -O2 -std=c++11
+COMPLIE_FLAGS=-Wall -g -O2 -std=c++11
 
 #连接选项
 LINK_FLAGS=-Wl,-rpath,'$$ORIGIN'
 
 #库头文件目录
-HEAD_DIR=-I../boost_1_60_0/ -I../libuv-1.x/include/ -I../libprotobuf/include/ -I../libvirt/include/
+HEAD_DIR=-I/home/pansl/boost_1_64_0/
 
 #库文件目录
-LIB_DIR= -L../libuv-1.x/libs/ -L../libprotobuf/libs/ -L../libvirt/libs/
+LIB_DIR= -L/home/pansl/boost_1_64_0/stage/lib/
 
 #库文件
-LIB= -luv -lprotobuf -lvirt
+LIB=  -lboost_system
 
 #依赖其它工程库文件
 PROJECT_LIB=
