@@ -3,22 +3,22 @@
 
 #include "MySocket.h"
 
-class http_request
+class http_message
 {
 public:
 	bool parse(const char * pchar, uint32_t endpos);
-	const char * get_http_method() const;
-	const char * get_http_version() const;
-	const char * get_resource_path() const;
+	const char * get_first() const;
+	const char * get_second() const;
+	const char * get_three() const;
 	const char * get_http_head(const char * key) const;
 protected:
 	bool parse_line(const char * pchar, uint32_t & lineLength);
 	bool parse_head(const char * pchar, uint32_t & headLength);
 	void trim(const char * pchar, uint32_t begPos, uint32_t endPos, std::string & outStr);
 private:
-	std::string m_http_method;
-	std::string m_http_version;
-	std::string m_resource_path;
+	std::string m_first;
+	std::string m_second;
+	std::string m_three;
 	std::list<std::pair<std::string, std::string>> m_http_heads;
 };
 

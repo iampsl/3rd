@@ -169,7 +169,10 @@ void MySocket::onConnect(std::shared_ptr<MySocket> pself, const boost::system::e
 		return;
 	}
 	login();
-	m_socket.async_read_some(boost::asio::buffer(m_readBuffer + m_readedSize, sizeof(m_readBuffer) - m_readedSize), std::bind(&MySocket::onRead, this, std::move(pself), std::placeholders::_1, std::placeholders::_2));
+	if (!m_isClosed)
+	{
+		m_socket.async_read_some(boost::asio::buffer(m_readBuffer + m_readedSize, sizeof(m_readBuffer) - m_readedSize), std::bind(&MySocket::onRead, this, std::move(pself), std::placeholders::_1, std::placeholders::_2));
+	}
 }
 
 void MySocket::onWrite(std::shared_ptr<MySocket> pself, MessageData data, const boost::system::error_code& error, std::size_t bytesTransferred)

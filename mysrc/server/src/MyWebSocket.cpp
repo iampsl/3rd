@@ -2,7 +2,10 @@
 #include <openssl/sha.h>
 #include "MyWebSocket.h"
 
-bool http_request::parse(const char * pchar, uint32_t endpos)
+static const char * g_websocketReq = "GET / HTTP/1.1\r\nSec-Websocket-Version: 13\r\nSec-Websocket-Key: Q6NIX4mSwu68sFLoWMi6pA==\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n";
+static const char * g_websocketAccept = "9zVwHv3w6sZ+Mj0ucxp4gAacjKk=";
+
+bool http_message::parse(const char * pchar, uint32_t endpos)
 {
 	uint32_t lineLength;
 	if (!parse_line(pchar, lineLength))
@@ -22,22 +25,22 @@ bool http_request::parse(const char * pchar, uint32_t endpos)
 	return true;
 }
 
-const char * http_request::get_http_method() const
+const char * http_message::get_first() const
 {
-	return m_http_method.c_str();
+	return m_first.c_str();
 }
 
-const char * http_request::get_http_version() const
+const char * http_message::get_second() const
 {
-	return m_http_version.c_str();
+	return m_second.c_str();
 }
 
-const char * http_request::get_resource_path() const
+const char * http_message::get_three() const
 {
-	return m_resource_path.c_str();
+	return m_three.c_str();
 }
 
-const char * http_request::get_http_head(const char * key) const
+const char * http_message::get_http_head(const char * key) const
 {
 	if (nullptr == key)
 	{
@@ -53,7 +56,7 @@ const char * http_request::get_http_head(const char * key) const
 	return nullptr;
 }
 
-bool http_request::parse_line(const char * pchar, uint32_t & lineLength)
+bool http_message::parse_line(const char * pchar, uint32_t & lineLength)
 {
 	uint32_t i = 0;
 	while (pchar[i] != ' ' && (pchar[i] != '\r' || pchar[i + 1] != '\n'))
@@ -68,7 +71,7 @@ bool http_request::parse_line(const char * pchar, uint32_t & lineLength)
 	{
 		return false;
 	}
-	m_http_method.assign(pchar, i);
+	m_first.assign(pchar, i);
 	while (pchar[i] == ' ')
 	{
 		++i;
@@ -82,7 +85,7 @@ bool http_request::parse_line(const char * pchar, uint32_t & lineLength)
 	{
 		return false;
 	}
-	m_resource_path.assign(pchar + i, j - i);
+	m_second.assign(pchar + i, j - i);
 	while (pchar[j] == ' ')
 	{
 		++j;
@@ -94,7 +97,7 @@ bool http_request::parse_line(const char * pchar, uint32_t & lineLength)
 	}
 	if (j < k)
 	{
-		m_http_version.assign(pchar + j, k - j);
+		m_three.assign(pchar + j, k - j);
 		lineLength = k + 2;
 		return true;
 	}
@@ -104,7 +107,7 @@ bool http_request::parse_line(const char * pchar, uint32_t & lineLength)
 	}
 }
 
-bool http_request::parse_head(const char * pchar, uint32_t & headLength)
+bool http_message::parse_head(const char * pchar, uint32_t & headLength)
 {
 	uint32_t i = 0;
 	while (pchar[i] != ':' && (pchar[i] != '\r' || pchar[i + 1] != '\n'))
@@ -135,7 +138,7 @@ bool http_request::parse_head(const char * pchar, uint32_t & headLength)
 	return true;
 }
 
-void http_request::trim(const char * pchar, uint32_t begPos, uint32_t endPos, std::string & outStr)
+void http_message::trim(const char * pchar, uint32_t begPos, uint32_t endPos, std::string & outStr)
 {
 	outStr.clear();
 	while (begPos < endPos)
@@ -352,7 +355,41 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 	{
 		if (m_isClient)
 		{
-
+			if (size < 4)
+			{
+				return 0;
+			}
+			if (pdata[0] != 'H' || pdata[1] != 'T' || pdata[2] != 'T' || pdata[3] != 'P')
+			{
+				close();
+				return 0;
+			}
+			uint32_t fendpos = find_http_request_end_pos((const char *)pdata, size);
+			if (0 == fendpos)
+			{
+				return 0;
+			}
+			http_message hreq;
+			if (!hreq.parse((const char*)pdata, fendpos - 2))
+			{
+				close();
+				return 0;
+			}
+			const char *pwebsocket_accept = hreq.get_http_head("Sec-WebSocket-Accept");
+			if (nullptr == pwebsocket_accept)
+			{
+				close();
+				return 0;
+			}
+			if (0 != strcmp(pwebsocket_accept, g_websocketAccept))
+			{
+				close();
+				return 0;
+			}
+			m_isHandshaked = true;
+			httpFinishCallback();
+			procFinish = true;
+			return fendpos;
 		}
 		else
 		{
@@ -370,7 +407,7 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 			{
 				return 0;
 			}
-			http_request hreq;
+			http_message hreq;
 			if (!hreq.parse((const char*)pdata, fendpos - 2))
 			{
 				close();
@@ -586,4 +623,15 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 void MyWebSocket::login()
 {
 	m_isClient = true;
+	size_t len = strlen(g_websocketReq);
+	MessageData data;
+	data.size = len;
+	data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
+	if (nullptr == data.pdata)
+	{
+		close();
+		return;
+	}
+	memcpy(data.pdata, g_websocketReq, len);
+	doSendMsg(data);
 }
