@@ -209,6 +209,15 @@ uint32_t find_http_request_end_pos(const char * pchar, uint32_t size)
 	return 0;
 }
 
+void makeMask(uint8_t * psrc, uint64_t size, uint32_t mask)
+{
+	uint8_t * pmask = (uint8_t*)(&mask);
+	for (uint64_t i = 0; i < size; ++i)
+	{
+		psrc[i] = psrc[i] ^ pmask[i % sizeof(mask)];
+	}
+}
+
 std::string base64_encode(const unsigned char* Data, int DataByte)
 {
 	const char * EncodeTable = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -515,20 +524,20 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 				frame_mask_value = *pvalue;
 			}
 		}
-		buffer_t* pframe = nullptr;
+		MessageData data{nullptr, 0, 0};
 		if (payload_data_size)
 		{
-			pframe = new buffer_t(payload_data_size);
-			pframe->set_data_size(payload_data_size);
-			uint8_t * pbuffer = pframe->get_buffer();
+			data.size = payload_data_size;
+			data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
+			if (nullptr == data.pdata)
+			{
+				close();
+				return 0;
+			}
+			uint8_t * pbuffer = (uint8_t*)(data.pdata);
 			if (bmask)
 			{
-				uint8_t * pmask = (uint8_t*)(&frame_mask_value);
-				uint8_t * psrc = pdata + frame_total_size - payload_data_size;
-				for (uint64_t i = 0; i < payload_data_size; ++i)
-				{
-					pbuffer[i] = psrc[i] ^ pmask[i % sizeof(frame_mask_value)];
-				}
+				makeMask(pdata + frame_total_size - payload_data_size, payload_data_size, frame_mask_value);
 			}
 			else
 			{
@@ -537,13 +546,13 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 		}
 		if (m_frames.empty())
 		{
-			m_frames.push_back(pframe);
+			m_frames.push_back(data);
 			m_frames_opcode = opcode;
 			m_frames_total_size = payload_data_size;
 		}
 		else
 		{
-			m_frames.push_back(pframe);
+			m_frames.push_back(data);
 			m_frames_total_size += payload_data_size;
 		}
 		procFinish = true;
@@ -556,31 +565,29 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 			{
 				if (m_frames.size() == 1)
 				{
-					buffer_t * ptempBuffer = m_frames.front();
-					if (ptempBuffer)
-					{
-						proc_msg_packet(ptempBuffer->get_buffer(), (uint32_t)(ptempBuffer->get_data_size()), m_frames_opcode, procFinish);
-					}
-					else
-					{
-						proc_msg_packet(nullptr, 0, m_frames_opcode, procFinish);
-					}
-					
+					MessageData tempData = m_frames.front();
+					procMsg((uint8_t*)(tempData.pdata), (uint32_t)(tempData.size), m_frames_opcode, procFinish);
 				}
 				else
 				{
-					buffer_t *ptotalBuffer = new buffer_t(m_frames_total_size);
-					uint8_t * ptotalBegin = ptotalBuffer->get_buffer();
-					for (auto & i : m_frames)
+					MessageData tempData;
+					tempData.size = m_frames_total_size;
+					tempData.pdata = getIoService()->getMemoryPool().malloc(tempData.size, tempData.retSize);
+					if (nullptr != tempData.pdata)
 					{
-						if (i)
+						uint8_t * ptotalBegin = (uint8_t*)(tempData.pdata);
+						size_t curTotalSize = 0;
+						for (auto & value : m_frames)
 						{
-							size_t totalDataSize = ptotalBuffer->get_data_size();
-							memcpy(ptotalBegin + totalDataSize, i->get_buffer(), i->get_data_size());
-							ptotalBuffer->set_data_size(totalDataSize + i->get_data_size());
+							if (nullptr != value.pdata)
+							{
+								memcpy(ptotalBegin + curTotalSize, value.pdata, value.size);
+								curTotalSize += value.size;
+							}
 						}
+						procMsg((uint8_t*)(tempData.pdata), (uint32_t)(tempData.size), m_frames_opcode, procFinish);
+						getIoService()->getMemoryPool().free(tempData.pdata, tempData.retSize);
 					}
-					proc_msg_packet(ptotalBuffer->get_buffer(), (uint32_t)(ptotalBuffer->get_data_size()), m_frames_opcode, procFinish);
 				}
 			}
 				break;
@@ -588,29 +595,20 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 				close();
 				break;
 			case 9:
-			{
-				uint8_t opcode = 138;
-				uint8_t payload = 0;
-				buffer_t* pmsg = new buffer_t(2);
-				uint8_t * pbuffer = pmsg->get_buffer();
-				pbuffer[0] = opcode;
-				pbuffer[1] = payload;
-				pmsg->set_data_size(2);
-				send_message(pmsg);
-				heart_beat_callback();
-			}
+				pingCallback();
 				break;
 			case 10:
-				heart_beat_callback();
+				pongCallback();
 				break;
 			default:
 				break;
 			}
-			for (auto i : m_frames)
+			MyMemoryPool & mpool = getIoService()->getMemoryPool();
+			for (auto & value : m_frames)
 			{
-				if (i)
+				if (value.pdata)
 				{
-					delete i;
+					mpool.free(value.pdata, value.retSize);
 				}
 			}
 			m_frames.clear();
