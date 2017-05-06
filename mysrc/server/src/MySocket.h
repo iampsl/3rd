@@ -42,7 +42,7 @@ protected:
 private:
 	MyIoService * m_ioservice;
 	boost::asio::ip::tcp::socket m_socket;
-	uint8_t m_readBuffer[1024];
+	uint8_t m_readBuffer[10240];
 	uint32_t m_readedSize;
 	uint32_t m_processedSize;
 	bool m_isClosed;

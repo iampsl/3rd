@@ -12,11 +12,11 @@ public:
 	void * malloc(unsigned int size, unsigned int & retSize);
 	void free(void * pmem, unsigned int retSize);
 private:
-	boost::pool<> m_pool32;
 	boost::pool<> m_pool64;
 	boost::pool<> m_pool128;
 	boost::pool<> m_pool256;
 	boost::pool<> m_pool512;
+	boost::pool<> m_pool1024;
 };
 
 #endif // !PSL_MY_MEMORY_POOL_H

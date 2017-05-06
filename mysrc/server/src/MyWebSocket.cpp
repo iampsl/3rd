@@ -299,61 +299,91 @@ void MyWebSocket::sendMsg(MyMessage & msg)
 	{
 		return;
 	}
-	const uint8_t data_type = 2;
-	uint8_t opcode = (15 & data_type) | 128;
+	const uint8_t data_type = msg.getMsgType();
+	assert(2 == data_type|| 1 == data_type);
+	uint8_t firstByte = (15 & data_type) | 128;
+	bool bmask = m_isClient ? true : false;
+	uint32_t maskValue = (uint32_t)size;
 	if (size <= 125)
 	{
-		uint8_t payload = (uint8_t)size;
+		uint8_t secondByte = (bmask?((uint8_t)(128|size)):((uint8_t)size));
 		MessageData data;
-		data.size = 2 + size;
+		data.size = (bmask ? (6+size):(2+size));
 		data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
 		if (nullptr == data.pdata)
 		{
 			return;
 		}
 		uint8_t * pbuffer = (uint8_t*)(data.pdata);
-		pbuffer[0] = opcode;
-		pbuffer[1] = payload;
-		bool bserialize = msg.serialize(pbuffer + 2, size);
+		pbuffer[0] = firstByte;
+		pbuffer[1] = secondByte;
+		if (bmask)
+		{
+			uint32_t * pmask = (uint32_t*)(pbuffer+2);
+			*pmask = maskValue;
+		}
+		bool bserialize = msg.serialize(pbuffer + data.size - size, size);
 		assert(true == bserialize);
+		if (bmask)
+		{
+			makeMask(pbuffer + data.size - size, size, maskValue);
+		}
 		doSendMsg(data);
 	}
 	else if (size <= 65535)
 	{
-		uint8_t payload = (uint8_t)126;
+		uint8_t secondByte = (bmask ? ((uint8_t)254):((uint8_t)126));
 		MessageData data;
-		data.size = 4 + size;
+		data.size = (bmask ? (8 + size) : (4 + size));
 		data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
 		if (nullptr == data.pdata)
 		{
 			return;
 		}
 		uint8_t * pbuffer = (uint8_t*)(data.pdata);
-		pbuffer[0] = opcode;
-		pbuffer[1] = payload;
+		pbuffer[0] = firstByte;
+		pbuffer[1] = secondByte;
 		uint16_t * plength = (uint16_t*)(pbuffer + 2);
 		*plength = htons((uint16_t)size);
-		bool bserialize = msg.serialize(pbuffer+4, size);
+		if (bmask)
+		{
+			uint32_t * pmask = (uint32_t*)(pbuffer + 4);
+			*pmask = maskValue;
+		}
+		bool bserialize = msg.serialize(pbuffer + data.size - size, size);
 		assert(true == bserialize);
+		if (bmask)
+		{
+			makeMask(pbuffer + data.size - size, size, maskValue);
+		}
 		doSendMsg(data);
 	}
 	else
 	{
-		uint8_t payload = (uint8_t)127;
+		uint8_t secondByte = (bmask ? ((uint8_t)255) : ((uint8_t)127));
 		MessageData data;
-		data.size = 10 + size;
+		data.size = (bmask ? (14 + size) : (10 + size));
 		data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
 		if (nullptr == data.pdata)
 		{
 			return;
 		}
 		uint8_t * pbuffer = (uint8_t*)(data.pdata);
-		pbuffer[0] = opcode;
-		pbuffer[1] = payload;
-		uint64_t *plength = (uint64_t*)(pbuffer + 2);
-		*plength = htonll((uint64_t)size);
-		bool bserialize = msg.serialize(pbuffer + 10, size);
+		pbuffer[0] = firstByte;
+		pbuffer[1] = secondByte;
+		uint64_t * plength = (uint64_t*)(pbuffer + 2);
+		*plength = htonll(size);
+		if (bmask)
+		{
+			uint32_t * pmask = (uint32_t*)(pbuffer + 10);
+			*pmask = maskValue;
+		}
+		bool bserialize = msg.serialize(pbuffer + data.size - size, size);
 		assert(true == bserialize);
+		if (bmask)
+		{
+			makeMask(pbuffer + data.size - size, size, maskValue);
+		}
 		doSendMsg(data);
 	}
 }

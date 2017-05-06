@@ -1,17 +1,12 @@
 #include "MyMemoryPool.h"
 
-MyMemoryPool::MyMemoryPool():m_pool32(32),m_pool64(64),m_pool128(128),m_pool256(256),m_pool512(512)
+MyMemoryPool::MyMemoryPool():m_pool64(64),m_pool128(128),m_pool256(256),m_pool512(512), m_pool1024(1024)
 {
 
 }
 
 void * MyMemoryPool::malloc(unsigned int size, unsigned int & retSize)
 {
-	if (size <= 32)
-	{
-		retSize = 32;
-		return m_pool32.malloc();
-	}
 	if (size <= 64)
 	{
 		retSize = 64;
@@ -32,6 +27,11 @@ void * MyMemoryPool::malloc(unsigned int size, unsigned int & retSize)
 		retSize = 512;
 		return m_pool512.malloc();
 	}
+	if (size <= 1024)
+	{
+		retSize = 1024;
+		return m_pool1024.malloc();
+	}
 	retSize = size;
 	return ::malloc(size);
 }
@@ -40,9 +40,6 @@ void MyMemoryPool::free(void * pmem, unsigned int retSize)
 {
 	switch (retSize)
 	{
-	case 32:
-		m_pool32.free(pmem);
-		break;
 	case 64:
 		m_pool64.free(pmem);
 		break;
@@ -55,8 +52,10 @@ void MyMemoryPool::free(void * pmem, unsigned int retSize)
 	case 512:
 		m_pool512.free(pmem);
 		break;
+	case 1024:
+		m_pool1024.free(pmem);
 	default:
-		assert(retSize > 512);
+		assert(retSize > 1024);
 		::free(pmem);
 		break;
 	}
