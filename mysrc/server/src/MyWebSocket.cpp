@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <openssl/sha.h>
+#include <boost/uuid/sha1.hpp>
 #include "MyWebSocket.h"
 
 static const char * g_websocketReq = "GET / HTTP/1.1\r\nSec-Websocket-Version: 13\r\nSec-Websocket-Key: Q6NIX4mSwu68sFLoWMi6pA==\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n";
@@ -8,7 +8,7 @@ static const char * g_websocketAccept = "9zVwHv3w6sZ+Mj0ucxp4gAacjKk=";
 bool http_message::parse(const char * pchar, uint32_t endpos)
 {
 	uint32_t lineLength;
-	if (!parse_line(pchar, lineLength))
+	if (!parse_firstline(pchar, lineLength))
 	{
 		return false;
 	}
@@ -56,7 +56,7 @@ const char * http_message::get_http_head(const char * key) const
 	return nullptr;
 }
 
-bool http_message::parse_line(const char * pchar, uint32_t & lineLength)
+bool http_message::parse_firstline(const char * pchar, uint32_t & lineLength)
 {
 	uint32_t i = 0;
 	while (pchar[i] != ' ' && (pchar[i] != '\r' || pchar[i + 1] != '\n'))
@@ -197,7 +197,7 @@ uint64_t ntohll(uint64_t val)
 	}
 }
 
-uint32_t find_http_request_end_pos(const char * pchar, uint32_t size)
+uint32_t find_http_message_end_pos(const char * pchar, uint32_t size)
 {
 	for (uint32_t i = 0; i <= size - 4; ++i)
 	{
@@ -257,21 +257,32 @@ MyWebSocket::MyWebSocket(MyIoService * pservice) : MySocket(pservice)
 {
 	m_isClient = false;
 	m_isHandshaked = false;
+	m_finishFrame.pdata = nullptr;
+	m_finishFrame.retSize = 0;
+	m_finishFrame.size = 0;
 }
 
 MyWebSocket::~MyWebSocket()
 {
-
+	assert(m_frames.empty());
+	assert(nullptr == m_finishFrame.pdata);
 }
 
 void MyWebSocket::close()
 {
-	auto ioservice = getIoService();
+	MyMemoryPool & mpool = getIoService()->getMemoryPool();
 	for (auto & value : m_frames)
 	{
-		ioservice->getMemoryPool().free(value.pdata, value.retSize);
+		if (value.pdata)
+		{
+			mpool.free(value.pdata, value.retSize);
+		}
 	}
 	m_frames.clear();
+	if (m_finishFrame.pdata)
+	{
+		mpool.free(m_finishFrame.pdata, m_finishFrame.retSize);
+	}
 	MySocket::close();
 }
 
@@ -287,6 +298,23 @@ void MyWebSocket::sendPing()
 		return;
 	}
 	uint8_t * pbuffer = (uint8_t*) (data.pdata);
+	pbuffer[0] = opcode;
+	pbuffer[1] = payload;
+	doSendMsg(data);
+}
+
+void MyWebSocket::sendPong()
+{
+	uint8_t opcode = 138;
+	uint8_t payload = 0;
+	MessageData data;
+	data.size = 2;
+	data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
+	if (nullptr == data.pdata)
+	{
+		return;
+	}
+	uint8_t * pbuffer = (uint8_t*)(data.pdata);
 	pbuffer[0] = opcode;
 	pbuffer[1] = payload;
 	doSendMsg(data);
@@ -403,18 +431,18 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 				close();
 				return 0;
 			}
-			uint32_t fendpos = find_http_request_end_pos((const char *)pdata, size);
+			uint32_t fendpos = find_http_message_end_pos((const char *)pdata, size);
 			if (0 == fendpos)
 			{
 				return 0;
 			}
-			http_message hreq;
-			if (!hreq.parse((const char*)pdata, fendpos - 2))
+			http_message msg;
+			if (!msg.parse((const char*)pdata, fendpos - 2))
 			{
 				close();
 				return 0;
 			}
-			const char *pwebsocket_accept = hreq.get_http_head("Sec-WebSocket-Accept");
+			const char *pwebsocket_accept = msg.get_http_head("Sec-WebSocket-Accept");
 			if (nullptr == pwebsocket_accept)
 			{
 				close();
@@ -441,18 +469,18 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 				close();
 				return 0;
 			}
-			uint32_t fendpos = find_http_request_end_pos((const char *)pdata, size);
+			uint32_t fendpos = find_http_message_end_pos((const char *)pdata, size);
 			if (0 == fendpos)
 			{
 				return 0;
 			}
-			http_message hreq;
-			if (!hreq.parse((const char*)pdata, fendpos - 2))
+			http_message msg;
+			if (!msg.parse((const char*)pdata, fendpos - 2))
 			{
 				close();
 				return 0;
 			}
-			const char * pwebsocket_key = hreq.get_http_head("Sec-WebSocket-Key");
+			const char * pwebsocket_key = msg.get_http_head("Sec-WebSocket-Key");
 			if (nullptr == pwebsocket_key)
 			{
 				close();
@@ -460,9 +488,11 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 			}
 			std::string websocket_key(pwebsocket_key);
 			websocket_key += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-			unsigned char sha_value[SHA_DIGEST_LENGTH];
-			SHA1((unsigned char *)(&websocket_key[0]), websocket_key.size(), sha_value);
-			std::string websocket_accept = base64_encode(sha_value, sizeof(sha_value));
+			unsigned int digest[5];
+			boost::uuids::detail::sha1 sha1;
+			sha1.process_bytes(&(websocket_key[0]), websocket_key.size());
+			sha1.get_digest(digest);
+			std::string websocket_accept = base64_encode((unsigned char *)(digest), sizeof(digest));
 			const char * pstr = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
 			size_t str_len = strlen(pstr);
 			websocket_accept += "\r\n\r\n";
@@ -554,58 +584,78 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 				frame_mask_value = *pvalue;
 			}
 		}
-		MessageData data{nullptr, 0, 0};
 		if (payload_data_size)
 		{
-			data.size = payload_data_size;
-			data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
-			if (nullptr == data.pdata)
-			{
-				close();
-				return 0;
-			}
-			uint8_t * pbuffer = (uint8_t*)(data.pdata);
 			if (bmask)
 			{
 				makeMask(pdata + frame_total_size - payload_data_size, payload_data_size, frame_mask_value);
 			}
+		}
+		procFinish = true;
+		if (!bfin)
+		{
+			MessageData data{nullptr, 0, 0};
+			if (payload_data_size)
+			{
+				data.size = (unsigned int)payload_data_size;
+				data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
+				if (nullptr != data.pdata)
+				{
+					memcpy(data.pdata, pdata + frame_total_size - payload_data_size, (size_t)payload_data_size);
+				}
+				else
+				{
+					close();
+				}
+			}
+			if (m_frames.empty())
+			{
+				m_frames.push_back(data);
+				m_frames_opcode = opcode;
+				m_frames_size = (unsigned int)payload_data_size;
+			}
 			else
 			{
-				memcpy(pbuffer, pdata + frame_total_size - payload_data_size, payload_data_size);
+				m_frames.push_back(data);
+				m_frames_size += (unsigned int)payload_data_size;
 			}
-		}
-		if (m_frames.empty())
-		{
-			m_frames.push_back(data);
-			m_frames_opcode = opcode;
-			m_frames_total_size = payload_data_size;
+			if (m_frames_size > 65536)
+			{
+				close();
+			}
 		}
 		else
 		{
-			m_frames.push_back(data);
-			m_frames_total_size += payload_data_size;
-		}
-		procFinish = true;
-		if (bfin)
-		{
-			switch (m_frames_opcode)
+			uint8_t realOpcode = opcode;
+			if (!m_frames.empty())
+			{
+				realOpcode = m_frames_opcode;
+			}
+			switch (realOpcode)
 			{
 			case 1:
 			case 2:
 			{
-				if (m_frames.size() == 1)
+				if (m_frames.empty())
 				{
-					MessageData tempData = m_frames.front();
-					procMsg((uint8_t*)(tempData.pdata), (uint32_t)(tempData.size), m_frames_opcode, procFinish);
+					if (nullptr != m_finishFrame.pdata)
+					{
+						getIoService()->getMemoryPool().free(m_finishFrame.pdata, m_finishFrame.retSize);
+						m_finishFrame.pdata = nullptr;
+					}
+					procMsg((pdata + frame_total_size - payload_data_size), (uint32_t)payload_data_size, realOpcode, procFinish);
 				}
 				else
 				{
-					MessageData tempData;
-					tempData.size = m_frames_total_size;
-					tempData.pdata = getIoService()->getMemoryPool().malloc(tempData.size, tempData.retSize);
-					if (nullptr != tempData.pdata)
+					if (nullptr != m_finishFrame.pdata)
 					{
-						uint8_t * ptotalBegin = (uint8_t*)(tempData.pdata);
+						getIoService()->getMemoryPool().free(m_finishFrame.pdata, m_finishFrame.retSize);
+					}
+					m_finishFrame.size = m_frames_size + (unsigned int)payload_data_size;
+					m_finishFrame.pdata = getIoService()->getMemoryPool().malloc(m_finishFrame.size, m_finishFrame.retSize);
+					if (nullptr != m_finishFrame.pdata)
+					{
+						uint8_t * ptotalBegin = (uint8_t*)(m_finishFrame.pdata);
 						size_t curTotalSize = 0;
 						for (auto & value : m_frames)
 						{
@@ -615,8 +665,20 @@ uint32_t MyWebSocket::procData(uint8_t * pdata, uint32_t size, bool & procFinish
 								curTotalSize += value.size;
 							}
 						}
-						procMsg((uint8_t*)(tempData.pdata), (uint32_t)(tempData.size), m_frames_opcode, procFinish);
-						getIoService()->getMemoryPool().free(tempData.pdata, tempData.retSize);
+						if (payload_data_size)
+						{
+							memcpy(ptotalBegin + curTotalSize, pdata, payload_data_size);
+						}
+						procMsg((uint8_t*)(m_finishFrame.pdata), (uint32_t)(m_finishFrame.size), realOpcode, procFinish);
+						if (procFinish)
+						{
+							getIoService()->getMemoryPool().free(m_finishFrame.pdata, m_finishFrame.retSize);
+							m_finishFrame.pdata = nullptr;
+						}
+					}
+					else
+					{
+						close();
 					}
 				}
 			}
@@ -653,7 +715,7 @@ void MyWebSocket::login()
 	m_isClient = true;
 	size_t len = strlen(g_websocketReq);
 	MessageData data;
-	data.size = len;
+	data.size = (unsigned int)len;
 	data.pdata = getIoService()->getMemoryPool().malloc(data.size, data.retSize);
 	if (nullptr == data.pdata)
 	{

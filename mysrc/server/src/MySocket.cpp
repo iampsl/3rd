@@ -98,6 +98,10 @@ void MySocket::procData(std::shared_ptr<MySocket> pself)
 		{
 			break;
 		}
+		if (m_isClosed)
+		{
+			break;
+		}
 	}
 	if (0 == processedSize)
 	{

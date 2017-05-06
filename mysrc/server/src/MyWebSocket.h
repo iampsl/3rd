@@ -12,7 +12,7 @@ public:
 	const char * get_three() const;
 	const char * get_http_head(const char * key) const;
 protected:
-	bool parse_line(const char * pchar, uint32_t & lineLength);
+	bool parse_firstline(const char * pchar, uint32_t & lineLength);
 	bool parse_head(const char * pchar, uint32_t & headLength);
 	void trim(const char * pchar, uint32_t begPos, uint32_t endPos, std::string & outStr);
 private:
@@ -32,6 +32,7 @@ public:
 	virtual void sendMsg(MyMessage & msg) override;
 	virtual void close() override final;
 	void sendPing();
+	void sendPong();
 protected:
 	virtual void httpFinishCallback() = 0;
 	virtual void pingCallback() = 0;
@@ -43,8 +44,9 @@ private:
 	bool m_isClient;
 	bool m_isHandshaked;
 	uint8_t m_frames_opcode;
+	unsigned int m_frames_size;
 	std::vector<MessageData> m_frames;
-	size_t m_frames_total_size;
+	MessageData m_finishFrame;
 };
 
 #endif // !PSL_MY_WEB_SOCKET_H
