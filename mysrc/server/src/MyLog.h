@@ -153,14 +153,22 @@ public:
 	class lockguard
 	{
 	public:
-		lockguard(MyLog & ml):m_log(ml)
+		lockguard(MyLog & ml):m_plog(&ml)
 		{
-			m_log.getMutex().lock();
+			m_plog->getMutex().lock();
+		}
+		lockguard(lockguard && other)
+		{
+			m_plog = other.m_plog;
+			other.m_plog = nullptr;
 		}
 		~lockguard()
 		{
-			m_log.newLine();
-			m_log.getMutex().unlock();
+			if (m_plog)
+			{
+				m_plog->newLine();
+				m_plog->getMutex().unlock();
+			}
 		}
 		operator bool()
 		{
@@ -170,7 +178,7 @@ public:
 		lockguard(const lockguard &) = delete;
 		lockguard & operator =(const lockguard&) = delete;
 	private:
-		MyLog & m_log;
+		MyLog * m_plog;
 	};
 public:
 	MyLog & MY_LOG_A;
