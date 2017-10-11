@@ -126,3 +126,52 @@ void MyWorkers::stop()
 		i->stop();
 	}
 }
+
+MyWorkerList::MyWorkerList()
+{
+	m_cur_insert_index = 0;
+	m_cur_worker_index = 1;
+}
+
+MyWorkerList::~MyWorkerList()
+{
+}
+
+void MyWorkerList::push_back(bool bmultiPush, std::function<void()> w)
+{
+	if (bmultiPush)
+	{
+		m_mutex.lock();
+		m_work[m_cur_insert_index].push_back(std::move(w));
+		m_mutex.unlock();
+	}
+	else
+	{
+		while (!m_mutex.try_lock())
+		{
+		}
+		m_work[m_cur_insert_index].push_back(std::move(w));
+		m_mutex.unlock();
+	}
+}
+
+bool MyWorkerList::process()
+{
+	if (!m_mutex.try_lock())
+	{
+		return true;
+	}
+	m_cur_insert_index = m_cur_worker_index;
+	m_mutex.unlock();
+	m_cur_worker_index = (m_cur_worker_index + 1) % 2;
+	if (m_work[m_cur_worker_index].empty())
+	{
+		return false;
+	}
+	for (auto & value : m_work[m_cur_worker_index])
+	{
+		value();
+	}
+	m_work[m_cur_worker_index].clear();
+	return true;
+}

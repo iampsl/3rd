@@ -80,12 +80,11 @@ public:
         m_what += ostrstream.str();
         return *this;
     }
-
+private:
+    std::string m_what;
 public:
 	MyException & MY_EXCEPTION_A;
 	MyException & MY_EXCEPTION_B;
-private:
-    std::string m_what;
 };
 
 #define MY_EXCEPTION_A(x) MY_EXCEPTION_OP(x,B)

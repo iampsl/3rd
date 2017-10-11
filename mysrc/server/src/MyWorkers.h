@@ -46,4 +46,20 @@ private:
 	size_t m_cur_index;
 };
 
+class MyWorkerList
+{
+public:
+	MyWorkerList();
+	MyWorkerList & operator = (const MyWorkerList &) = delete;
+	MyWorkerList(const MyWorkerList &) = delete;
+	~MyWorkerList();
+	void push_back(bool bmultiPush, std::function<void()> w);
+	bool process();//just call on a thread
+private:
+	std::deque<std::function<void()>> m_work[2];
+	uint32_t m_cur_worker_index;
+	std::mutex m_mutex;
+	uint32_t m_cur_insert_index;
+};
+
 #endif // !PSL_MY_WORKERS_H
