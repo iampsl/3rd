@@ -1,9 +1,9 @@
 #ifndef PSL_MYLOG_H
 #define PSL_MYLOG_H
 
-#include <stdio.h>
-#include <time.h>
-#include <inttypes.h>
+#include <cstdio>
+#include <ctime>
+#include <cstdint>
 #include <string>
 #include <sstream>
 #include <stdexcept>
